@@ -334,3 +334,115 @@ button {
 .empty-state p {
     font-size: 14px;
 }
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .header h1 {
+        font-size: 20px;
+    }
+    
+    .header-buttons {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .header-buttons button {
+        flex: 1;
+        min-width: 120px;
+        font-size: 12px;
+        padding: 8px 12px;
+    }
+    
+    .project-list {
+        grid-template-columns: 1fr;
+        padding: 15px;
+        gap: 15px;
+    }
+    
+    .modal-content {
+        width: 95%;
+        max-height: 95vh;
+    }
+    
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding: 15px 20px;
+    }
+    
+    .modal-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .modal-footer button {
+        width: 100%;
+    }
+    
+    /* ノードのサイズ調整 */
+    .node-rect {
+        width: 180px;
+    }
+    
+    .node-title {
+        font-size: 12px;
+    }
+    
+    .node-preview {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header h1 {
+        font-size: 18px;
+    }
+    
+    .header-buttons button {
+        min-width: 100px;
+        font-size: 11px;
+        padding: 6px 10px;
+    }
+    
+    .project-card {
+        padding: 15px;
+    }
+    
+    .project-card h3 {
+        font-size: 16px;
+    }
+    
+    .project-card .project-info {
+        font-size: 12px;
+    }
+}
+
+/* タッチデバイス用の調整 */
+@media (hover: none) and (pointer: coarse) {
+    button {
+        padding: 12px 24px;
+        font-size: 16px;
+    }
+    
+    .node {
+        cursor: pointer;
+    }
+    
+    .connection {
+        stroke-width: 4;
+    }
+    
+    /* タップ領域を拡大 */
+    .close-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 28px;
+    }
+}

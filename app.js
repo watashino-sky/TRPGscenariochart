@@ -95,10 +95,15 @@ function setupEventListeners() {
     document.getElementById('save-connection-btn').addEventListener('click', saveConnection);
     document.getElementById('delete-connection-btn').addEventListener('click', deleteConnection);
     
-    // キャンバス操作
+    // キャンバス操作（マウス）
     canvas.addEventListener('mousedown', onCanvasMouseDown);
     canvas.addEventListener('mousemove', onCanvasMouseMove);
     canvas.addEventListener('mouseup', onCanvasMouseUp);
+    
+    // キャンバス操作（タッチ）
+    canvas.addEventListener('touchstart', onCanvasTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', onCanvasTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onCanvasTouchEnd, { passive: false });
     
     // Enterキーでプロジェクト作成
     document.getElementById('new-project-name').addEventListener('keypress', (e) => {
@@ -265,6 +270,7 @@ function renderNode(node) {
     
     // イベントリスナー
     g.addEventListener('mousedown', (e) => onNodeMouseDown(e, node.id));
+    g.addEventListener('touchstart', (e) => onNodeTouchStart(e, node.id), { passive: false });
     g.addEventListener('click', (e) => {
         if (!isDraggingNode) {
             openNodeEditor(node.id);
@@ -283,6 +289,12 @@ function renderNode(node) {
         e.stopPropagation();
         startConnection(node.id);
     });
+    
+    connectPoint.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        startConnection(node.id);
+    }, { passive: false });
     
     g.appendChild(connectPoint);
     
@@ -550,6 +562,9 @@ function onNodeMouseDown(e, nodeId) {
         return;
     }
     
+    e.stopPropagation();
+    e.preventDefault();
+    
     isDraggingNode = true;
     const node = getCurrentProject().nodes.find(n => n.id === nodeId);
     
@@ -587,6 +602,86 @@ function onNodeMouseDown(e, nodeId) {
     
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
+}
+
+function onNodeTouchStart(e, nodeId) {
+    if (isConnecting) {
+        e.stopPropagation();
+        e.preventDefault();
+        completeConnection(nodeId);
+        return;
+    }
+    
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const touch = e.touches[0];
+    isDraggingNode = true;
+    const node = getCurrentProject().nodes.find(n => n.id === nodeId);
+    
+    const nodeElement = e.currentTarget;
+    const startX = touch.clientX;
+    const startY = touch.clientY;
+    const originalX = node.x;
+    const originalY = node.y;
+    
+    function onTouchMove(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const dx = (touch.clientX - startX);
+        const dy = (touch.clientY - startY);
+        
+        node.x = originalX + dx;
+        node.y = originalY + dy;
+        
+        nodeElement.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+        
+        // 接続を再描画
+        renderChart();
+    }
+    
+    function onTouchEnd() {
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+        
+        const project = getCurrentProject();
+        project.updatedAt = Date.now();
+        saveProjects();
+        
+        setTimeout(() => {
+            isDraggingNode = false;
+        }, 100);
+    }
+    
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+}
+
+// キャンバスのタッチイベント
+function onCanvasTouchStart(e) {
+    if (e.target === canvas) {
+        isDraggingCanvas = true;
+        const touch = e.touches[0];
+        dragStartPos = { x: touch.clientX - canvasOffset.x, y: touch.clientY - canvasOffset.y };
+        e.preventDefault();
+    }
+}
+
+function onCanvasTouchMove(e) {
+    if (isDraggingCanvas) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        canvasOffset.x = touch.clientX - dragStartPos.x;
+        canvasOffset.y = touch.clientY - dragStartPos.y;
+        
+        nodesLayer.setAttribute('transform', `translate(${canvasOffset.x}, ${canvasOffset.y})`);
+        connectionsLayer.setAttribute('transform', `translate(${canvasOffset.x}, ${canvasOffset.y})`);
+    }
+}
+
+function onCanvasTouchEnd(e) {
+    isDraggingCanvas = false;
+    isDraggingNode = false;
 }
 
 // JSONエクスポート
