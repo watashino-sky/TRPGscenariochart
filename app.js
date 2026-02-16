@@ -111,6 +111,14 @@ function setupEventListeners() {
             createProject();
         }
     });
+    
+    // Escキーで接続モードをキャンセル
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isConnecting) {
+            cancelConnection();
+            showNotification('接続をキャンセルしました');
+        }
+    });
 }
 
 // プロジェクト一覧の描画
@@ -279,11 +287,15 @@ function renderNode(node) {
     
     // 接続開始ポイント（右側）
     const connectPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    connectPoint.classList.add('connect-point');
     connectPoint.setAttribute('cx', '200');
     connectPoint.setAttribute('cy', '40');
-    connectPoint.setAttribute('r', '8');
+    connectPoint.setAttribute('r', '12');
     connectPoint.setAttribute('fill', '#4CAF50');
+    connectPoint.setAttribute('stroke', '#fff');
+    connectPoint.setAttribute('stroke-width', '2');
     connectPoint.style.cursor = 'pointer';
+    connectPoint.setAttribute('data-connect', 'true');
     
     connectPoint.addEventListener('mousedown', (e) => {
         e.stopPropagation();
@@ -446,12 +458,31 @@ function deleteNode() {
 function startConnection(nodeId) {
     isConnecting = true;
     connectingFrom = nodeId;
+    
+    // 接続モードの視覚的フィードバック
+    canvas.style.cursor = 'crosshair';
+    
+    // 接続元ノードをハイライト
+    const nodeElement = nodesLayer.querySelector(`[data-id="${nodeId}"]`);
+    if (nodeElement) {
+        const rect = nodeElement.querySelector('.node-rect');
+        rect.style.stroke = '#4CAF50';
+        rect.style.strokeWidth = '4';
+    }
+    
+    // 通知を表示
+    showNotification('接続先のノードをクリック/タップしてください');
 }
 
 // 接続完了
 function completeConnection(toNodeId) {
     if (!isConnecting || !connectingFrom) return;
-    if (connectingFrom === toNodeId) return; // 自己接続は禁止
+    if (connectingFrom === toNodeId) {
+        // 自己接続は禁止
+        cancelConnection();
+        showNotification('同じノード同士は接続できません');
+        return;
+    }
     
     const project = getCurrentProject();
     
@@ -472,11 +503,21 @@ function completeConnection(toNodeId) {
         project.updatedAt = Date.now();
         saveProjects();
         
+        showNotification('接続を作成しました');
         renderChart();
+    } else {
+        showNotification('既に接続されています');
     }
     
+    cancelConnection();
+}
+
+// 接続をキャンセル
+function cancelConnection() {
     isConnecting = false;
     connectingFrom = null;
+    canvas.style.cursor = 'grab';
+    renderChart();
 }
 
 // 接続エディタを開く
@@ -533,6 +574,13 @@ function deleteConnection() {
 // マウスイベント
 function onCanvasMouseDown(e) {
     if (e.target === canvas) {
+        // 接続モード中ならキャンセル
+        if (isConnecting) {
+            cancelConnection();
+            showNotification('接続をキャンセルしました');
+            return;
+        }
+        
         isDraggingCanvas = true;
         dragStartPos = { x: e.clientX - canvasOffset.x, y: e.clientY - canvasOffset.y };
         canvas.classList.add('dragging');
@@ -613,44 +661,77 @@ function onNodeTouchStart(e, nodeId) {
     }
     
     e.stopPropagation();
-    e.preventDefault();
     
     const touch = e.touches[0];
-    isDraggingNode = true;
     const node = getCurrentProject().nodes.find(n => n.id === nodeId);
-    
     const nodeElement = e.currentTarget;
+    
+    let longPressTimer = null;
+    let hasMoved = false;
+    let isDragging = false;
+    
     const startX = touch.clientX;
     const startY = touch.clientY;
     const originalX = node.x;
     const originalY = node.y;
     
-    function onTouchMove(e) {
+    // 長押しタイマー（500ms）
+    longPressTimer = setTimeout(() => {
         e.preventDefault();
-        const touch = e.touches[0];
-        const dx = (touch.clientX - startX);
-        const dy = (touch.clientY - startY);
+        isDragging = true;
+        isDraggingNode = true;
         
-        node.x = originalX + dx;
-        node.y = originalY + dy;
+        // 視覚的フィードバック（ノードを少し拡大）
+        nodeElement.style.transform = 'scale(1.1)';
+        nodeElement.style.opacity = '0.8';
         
-        nodeElement.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+        // 振動フィードバック（対応デバイスのみ）
+        if (navigator.vibrate) {
+            navigator.vibrate(50);
+        }
+    }, 500);
+    
+    function onTouchMove(e) {
+        hasMoved = true;
         
-        // 接続を再描画
-        renderChart();
+        if (isDragging) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const dx = (touch.clientX - startX);
+            const dy = (touch.clientY - startY);
+            
+            node.x = originalX + dx;
+            node.y = originalY + dy;
+            
+            nodeElement.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+            
+            // 接続を再描画
+            renderChart();
+        }
     }
     
-    function onTouchEnd() {
+    function onTouchEnd(e) {
+        clearTimeout(longPressTimer);
+        
         document.removeEventListener('touchmove', onTouchMove);
         document.removeEventListener('touchend', onTouchEnd);
         
-        const project = getCurrentProject();
-        project.updatedAt = Date.now();
-        saveProjects();
-        
-        setTimeout(() => {
-            isDraggingNode = false;
-        }, 100);
+        if (isDragging) {
+            // ドラッグ終了
+            nodeElement.style.transform = '';
+            nodeElement.style.opacity = '';
+            
+            const project = getCurrentProject();
+            project.updatedAt = Date.now();
+            saveProjects();
+            
+            setTimeout(() => {
+                isDraggingNode = false;
+            }, 100);
+        } else if (!hasMoved) {
+            // タップ（長押しせず、移動もしていない）
+            openNodeEditor(nodeId);
+        }
     }
     
     document.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -660,6 +741,13 @@ function onNodeTouchStart(e, nodeId) {
 // キャンバスのタッチイベント
 function onCanvasTouchStart(e) {
     if (e.target === canvas) {
+        // 接続モード中ならキャンセル
+        if (isConnecting) {
+            cancelConnection();
+            showNotification('接続をキャンセルしました');
+            return;
+        }
+        
         isDraggingCanvas = true;
         const touch = e.touches[0];
         dragStartPos = { x: touch.clientX - canvasOffset.x, y: touch.clientY - canvasOffset.y };
@@ -847,6 +935,33 @@ function escapeHtml(text) {
 function truncateText(text, length) {
     if (text.length <= length) return text;
     return text.substring(0, length) + '...';
+}
+
+// 通知表示
+function showNotification(message) {
+    // 既存の通知を削除
+    const existing = document.querySelector('.notification');
+    if (existing) {
+        existing.remove();
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    // フェードイン
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 10);
+    
+    // 3秒後にフェードアウト
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    }, 3000);
 }
 
 // アプリケーション起動
