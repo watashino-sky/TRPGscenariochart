@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRPGシナリオチャート</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- プロジェクト一覧画面 -->
+    <div id="project-list-screen" class="screen">
+        <div class="header">
+            <h1>TRPGシナリオチャート</h1>
+            <div class="header-buttons">
+                <button id="new-project-btn" class="primary-btn">新規プロジェクト</button>
+                <button id="import-project-btn" class="secondary-btn">インポート</button>
+            </div>
+        </div>
+        <div class="project-list" id="project-list">
+            <!-- プロジェクト一覧がここに表示される -->
+        </div>
+    </div>
+
+    <!-- フローチャート編集画面 -->
+    <div id="chart-screen" class="screen hidden">
+        <div class="header">
+            <h1 id="project-title">プロジェクト名</h1>
+            <div class="header-buttons">
+                <button id="back-to-projects-btn" class="secondary-btn">プロジェクト一覧</button>
+                <button id="add-node-btn" class="primary-btn">+ ノード追加</button>
+                <button id="export-json-btn" class="secondary-btn">JSONエクスポート</button>
+                <button id="export-text-btn" class="secondary-btn">テキスト出力</button>
+                <button id="export-pdf-btn" class="secondary-btn">PDF出力</button>
+            </div>
+        </div>
+        <div id="canvas-container">
+            <svg id="canvas" width="100%" height="100%">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#666" />
+                    </marker>
+                </defs>
+                <g id="connections-layer"></g>
+                <g id="nodes-layer"></g>
+            </svg>
+        </div>
+    </div>
+
+    <!-- ノード編集モーダル -->
+    <div id="node-editor-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>ノード編集</h2>
+                <button id="close-editor-btn" class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>日時・場所</label>
+                    <input type="text" id="node-title" placeholder="例：2024年4月1日 10:00 / 病院の受付">
+                </div>
+                <div class="form-group">
+                    <label>登場NPC</label>
+                    <input type="text" id="node-npc" placeholder="例：看護師、医師">
+                </div>
+                <div class="form-group">
+                    <label>本文</label>
+                    <textarea id="node-content" rows="15" placeholder="描写や探索箇所、情報などを記述してください
+
+例：
+PCたちは病院の受付に到着する。
+
+探索箇所A
+＞情報1
+＞情報2
+
+〈技能判定〉
+成功：テキスト
+失敗：テキスト"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>ノードの色</label>
+                    <div class="color-picker">
+                        <input type="color" id="node-color" value="#ffffff">
+                        <span id="color-preview"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="delete-node-btn" class="danger-btn">削除</button>
+                <button id="save-node-btn" class="primary-btn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 矢印ラベル編集モーダル -->
+    <div id="connection-editor-modal" class="modal hidden">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>矢印ラベル編集</h2>
+                <button id="close-connection-editor-btn" class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>ラベル</label>
+                    <input type="text" id="connection-label" placeholder="例：協力する、拒否する">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="delete-connection-btn" class="danger-btn">削除</button>
+                <button id="save-connection-btn" class="primary-btn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新規プロジェクトモーダル -->
+    <div id="new-project-modal" class="modal hidden">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>新規プロジェクト</h2>
+                <button id="close-new-project-btn" class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>プロジェクト名</label>
+                    <input type="text" id="new-project-name" placeholder="例：病院シナリオ">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-new-project-btn" class="secondary-btn">キャンセル</button>
+                <button id="create-project-btn" class="primary-btn">作成</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ファイル入力（非表示） -->
+    <input type="file" id="import-file-input" accept=".json" style="display: none;">
+
+    <script src="app.js"></script>
+</body>
+</html>
