@@ -16,33 +16,44 @@
                 <button id="import-project-btn" class="secondary-btn">インポート</button>
             </div>
         </div>
-        <div class="project-list" id="project-list">
-            <!-- プロジェクト一覧がここに表示される -->
-        </div>
+        <div class="project-list" id="project-list"></div>
     </div>
 
     <!-- フローチャート編集画面 -->
     <div id="chart-screen" class="screen hidden">
         <div class="header">
-            <h1 id="project-title">プロジェクト名</h1>
+            <div class="header-left">
+                <button id="back-to-projects-btn" class="secondary-btn">← 一覧</button>
+                <h1 id="project-title">プロジェクト名</h1>
+            </div>
             <div class="header-buttons">
-                <button id="back-to-projects-btn" class="secondary-btn">プロジェクト一覧</button>
-                <button id="add-node-btn" class="primary-btn">+ ノード追加</button>
-                <button id="export-json-btn" class="secondary-btn">JSONエクスポート</button>
+                <div class="add-node-group">
+                    <button id="add-scene-btn" class="primary-btn">＋ シーン</button>
+                    <button id="add-branch-btn" class="branch-btn">＋ 分岐</button>
+                </div>
+                <button id="auto-layout-btn" class="secondary-btn">自動整列</button>
+                <button id="export-json-btn" class="secondary-btn">JSON保存</button>
                 <button id="export-text-btn" class="secondary-btn">テキスト出力</button>
                 <button id="export-pdf-btn" class="secondary-btn">PDF出力</button>
             </div>
         </div>
         <div id="canvas-container">
-            <svg id="canvas" width="100%" height="100%">
+            <svg id="canvas" width="3000" height="3000">
                 <defs>
-                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                        <polygon points="0 0, 10 3, 0 6" fill="#666" />
+                    <marker id="arrowhead" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto">
+                        <polygon points="0 0, 12 4, 0 8" fill="#555" />
+                    </marker>
+                    <marker id="arrowhead-green" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto">
+                        <polygon points="0 0, 12 4, 0 8" fill="#4CAF50" />
                     </marker>
                 </defs>
                 <g id="connections-layer"></g>
                 <g id="nodes-layer"></g>
             </svg>
+        </div>
+        <!-- 操作ヒント -->
+        <div id="hint-bar">
+            <span id="hint-text">ノードをドラッグで移動 ／ 緑の丸をクリックで接続 ／ ノードをクリックで編集</span>
         </div>
     </div>
 
@@ -50,24 +61,34 @@
     <div id="node-editor-modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>ノード編集</h2>
+                <h2 id="editor-title">ノード編集</h2>
                 <button id="close-editor-btn" class="close-btn">×</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
+                    <label>ノードの種類</label>
+                    <div class="node-type-selector">
+                        <label class="node-type-option">
+                            <input type="radio" name="node-type" value="scene" checked>
+                            <span class="type-label scene-type">□ 通常シーン</span>
+                        </label>
+                        <label class="node-type-option">
+                            <input type="radio" name="node-type" value="branch">
+                            <span class="type-label branch-type">◆ 分岐・条件</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label>日時・場所</label>
                     <input type="text" id="node-title" placeholder="例：2024年4月1日 10:00 / 病院の受付">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="npc-group">
                     <label>登場NPC</label>
                     <input type="text" id="node-npc" placeholder="例：看護師、医師">
                 </div>
                 <div class="form-group">
                     <label>本文</label>
-                    <textarea id="node-content" rows="15" placeholder="描写や探索箇所、情報などを記述してください
-
-例：
-PCたちは病院の受付に到着する。
+                    <textarea id="node-content" rows="12" placeholder="描写や探索箇所、情報などを記述
 
 探索箇所A
 ＞情報1
@@ -81,7 +102,15 @@ PCたちは病院の受付に到着する。
                     <label>ノードの色</label>
                     <div class="color-picker">
                         <input type="color" id="node-color" value="#ffffff">
-                        <span id="color-preview"></span>
+                        <div class="color-presets">
+                            <span class="color-preset" data-color="#ffffff" style="background:#ffffff" title="白"></span>
+                            <span class="color-preset" data-color="#fff9c4" style="background:#fff9c4" title="黄"></span>
+                            <span class="color-preset" data-color="#f8bbd0" style="background:#f8bbd0" title="ピンク"></span>
+                            <span class="color-preset" data-color="#c8e6c9" style="background:#c8e6c9" title="緑"></span>
+                            <span class="color-preset" data-color="#bbdefb" style="background:#bbdefb" title="青"></span>
+                            <span class="color-preset" data-color="#e1bee7" style="background:#e1bee7" title="紫"></span>
+                            <span class="color-preset" data-color="#ffccbc" style="background:#ffccbc" title="オレンジ"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -102,7 +131,7 @@ PCたちは病院の受付に到着する。
             <div class="modal-body">
                 <div class="form-group">
                     <label>ラベル</label>
-                    <input type="text" id="connection-label" placeholder="例：協力する、拒否する">
+                    <input type="text" id="connection-label" placeholder="例：YES / 協力する / 拒否する">
                 </div>
             </div>
             <div class="modal-footer">
@@ -132,9 +161,7 @@ PCたちは病院の受付に到着する。
         </div>
     </div>
 
-    <!-- ファイル入力（非表示） -->
-    <input type="file" id="import-file-input" accept=".json" style="display: none;">
-
+    <input type="file" id="import-file-input" accept=".json" style="display:none;">
     <script src="app.js"></script>
 </body>
 </html>
