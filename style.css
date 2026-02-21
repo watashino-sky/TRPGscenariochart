@@ -119,9 +119,9 @@ button {
     filter: drop-shadow(0 3px 6px rgba(0,0,0,0.15));
 }
 
-.node-title { font-size: 13px; font-weight: 700; fill: #222; pointer-events: none; }
-.node-npc-text { font-size: 11px; fill: #555; pointer-events: none; }
-.node-preview { font-size: 11px; fill: #888; pointer-events: none; }
+.node-title { font-size: 12px; font-weight: 700; fill: #222; pointer-events: none; }
+.node-npc-text { font-size: 10px; fill: #555; pointer-events: none; }
+.node-preview { font-size: 10px; fill: #888; pointer-events: none; }
 
 .connect-point { cursor: pointer; }
 

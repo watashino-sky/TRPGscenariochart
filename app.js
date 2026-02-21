@@ -3,12 +3,12 @@
 // ============================================================
 
 // ---- 定数 ----
-const NODE_W = 200;   // 通常シーンノードの幅
-const NODE_H = 80;    // 通常シーンノードの高さ
-const DIAMOND_W = 160; // ひし形の横幅
-const DIAMOND_H = 80;  // ひし形の縦幅
-const GRID_COL_W = 280; // 自動整列の列幅
-const GRID_ROW_H = 140; // 自動整列の行間
+const NODE_W = 160;   // 通常シーンノードの幅（200→160に縮小）
+const NODE_H = 60;    // 通常シーンノードの高さ（80→60に縮小）
+const DIAMOND_W = 140; // ひし形の横幅（160→140に縮小）
+const DIAMOND_H = 70;  // ひし形の縦幅（80→70に縮小）
+const GRID_COL_W = 220; // 自動整列の列幅
+const GRID_ROW_H = 110; // 自動整列の行間
 
 // ---- データ ----
 let projects = [];
@@ -210,7 +210,7 @@ function drawNode(node) {
     const cpY = node.type === 'branch' ? DIAMOND_H : NODE_H;
     cp.setAttribute('cx', cpX);
     cp.setAttribute('cy', cpY);
-    cp.setAttribute('r', '8');
+    cp.setAttribute('r', '7');
     cp.setAttribute('fill', node.type === 'branch' ? '#FF9800' : '#4CAF50');
     cp.setAttribute('stroke', '#fff');
     cp.setAttribute('stroke-width', '2');
@@ -235,38 +235,20 @@ function drawRect(g, node) {
     rect.classList.add('node-rect');
     rect.setAttribute('width', W);
     rect.setAttribute('height', H);
-    rect.setAttribute('rx', '10');
+    rect.setAttribute('rx', '8');
     rect.setAttribute('fill', node.color || '#ffffff');
     g.appendChild(rect);
 
-    // タイトル
-    const titleLines = wrapText(node.title || '（無題）', W - 16, 13);
-    titleLines.slice(0, 2).forEach((line, i) => {
+    // タイトル（日時・場所）のみ表示（複数行対応）
+    const titleLines = wrapText(node.title || '（無題）', W - 16, 12);
+    titleLines.slice(0, 3).forEach((line, i) => {
         const t = svgEl('text');
         t.classList.add('node-title');
-        t.setAttribute('x', '10');
-        t.setAttribute('y', 20 + i * 16);
+        t.setAttribute('x', '8');
+        t.setAttribute('y', 16 + i * 14);
         t.textContent = line;
         g.appendChild(t);
     });
-
-    // NPC
-    if (node.npc) {
-        const n = svgEl('text');
-        n.classList.add('node-npc-text');
-        n.setAttribute('x', '10');
-        n.setAttribute('y', H - 28);
-        n.textContent = '👤 ' + truncate(node.npc, 24);
-        g.appendChild(n);
-    }
-
-    // 本文プレビュー
-    const preview = svgEl('text');
-    preview.classList.add('node-preview');
-    preview.setAttribute('x', '10');
-    preview.setAttribute('y', H - 14);
-    preview.textContent = truncate(node.content || '', 28);
-    g.appendChild(preview);
 }
 
 function drawDiamond(g, node) {
@@ -278,13 +260,13 @@ function drawDiamond(g, node) {
     diamond.setAttribute('fill', node.color || '#FFF8E1');
     g.appendChild(diamond);
 
-    // テキスト（中央）
-    const titleLines = wrapText(node.title || '分岐', W - 30, 12);
-    titleLines.slice(0, 2).forEach((line, i) => {
+    // テキスト（中央）- 日時・場所のみ
+    const titleLines = wrapText(node.title || '分岐', W - 24, 11);
+    titleLines.slice(0, 3).forEach((line, i) => {
         const t = svgEl('text');
         t.classList.add('node-title');
         t.setAttribute('x', cx);
-        t.setAttribute('y', cy - 6 + i * 16);
+        t.setAttribute('y', cy - 10 + i * 13);
         t.setAttribute('text-anchor', 'middle');
         t.setAttribute('dominant-baseline', 'middle');
         t.textContent = line;
