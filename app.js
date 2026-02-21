@@ -335,7 +335,7 @@ function addNode() {
 }
 
 // ============================================================
-// 自動整列（縦1列）
+// 自動整列（分岐は横並び）
 // ============================================================
 function autoLayout() {
     const p = getProject();
@@ -344,17 +344,51 @@ function autoLayout() {
     // トポロジカルソートで順序を決定
     const sorted = topSort(p);
 
-    // 縦1列に配置（中央寄せ）
-    const centerX = 200; // 画面中央付近
-    sorted.forEach((node, i) => {
-        node.x = centerX;
-        node.y = 60 + i * GRID_ROW_H;
+    // 各ノードのレベル（階層）を計算
+    const level = {};
+    sorted.forEach(node => {
+        // このノードへの接続元の最大レベル+1
+        const incoming = p.connections.filter(c => c.to === node.id);
+        if (incoming.length === 0) {
+            level[node.id] = 0; // ルートノード
+        } else {
+            const maxParentLevel = Math.max(...incoming.map(c => level[c.from] ?? 0));
+            level[node.id] = maxParentLevel + 1;
+        }
+    });
+
+    // 各レベルごとにノードをグループ化
+    const levels = {};
+    p.nodes.forEach(node => {
+        const lv = level[node.id] ?? 0;
+        if (!levels[lv]) levels[lv] = [];
+        levels[lv].push(node);
+    });
+
+    // 各レベルのノードを配置
+    Object.entries(levels).forEach(([lv, nodes]) => {
+        const levelNum = Number(lv);
+        const y = 60 + levelNum * GRID_ROW_H;
+        
+        if (nodes.length === 1) {
+            // 1つだけなら中央
+            nodes[0].x = 200;
+            nodes[0].y = y;
+        } else {
+            // 複数（分岐）なら横並び
+            const totalWidth = nodes.length * GRID_COL_W;
+            const startX = 200 - totalWidth / 2 + GRID_COL_W / 2;
+            nodes.forEach((node, i) => {
+                node.x = startX + i * GRID_COL_W;
+                node.y = y;
+            });
+        }
     });
 
     p.updatedAt = Date.now();
     save();
     renderChart();
-    notify('縦1列に整列しました');
+    notify('自動整列しました（分岐は横並び）');
 }
 
 // ============================================================
