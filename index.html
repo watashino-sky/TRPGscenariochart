@@ -28,10 +28,7 @@
                 <h1 id="project-title">プロジェクト名</h1>
             </div>
             <div class="header-buttons">
-                <div class="add-node-group">
-                    <button id="add-scene-btn" class="primary-btn">＋ シーン</button>
-                    <button id="add-branch-btn" class="branch-btn">＋ 分岐</button>
-                </div>
+                <button id="add-scene-btn" class="primary-btn">＋ ノード追加</button>
                 <button id="auto-layout-btn" class="secondary-btn">自動整列</button>
                 <button id="export-json-btn" class="secondary-btn">JSON保存</button>
                 <button id="export-text-btn" class="secondary-btn">テキスト出力</button>
@@ -67,23 +64,10 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label>ノードの種類</label>
-                    <div class="node-type-selector">
-                        <label class="node-type-option">
-                            <input type="radio" name="node-type" value="scene" checked>
-                            <span class="type-label scene-type">□ 通常シーン</span>
-                        </label>
-                        <label class="node-type-option">
-                            <input type="radio" name="node-type" value="branch">
-                            <span class="type-label branch-type">◆ 分岐・条件</span>
-                        </label>
-                    </div>
-                </div>
-                <div class="form-group">
                     <label>日時・場所</label>
                     <input type="text" id="node-title" placeholder="例：2024年4月1日 10:00 / 病院の受付">
                 </div>
-                <div class="form-group" id="npc-group">
+                <div class="form-group">
                     <label>登場NPC</label>
                     <input type="text" id="node-npc" placeholder="例：看護師、医師">
                 </div>

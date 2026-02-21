@@ -72,8 +72,7 @@ function setupListeners() {
     document.getElementById('import-project-btn').onclick = importProject;
 
     // ノード追加
-    document.getElementById('add-scene-btn').onclick  = () => addNode('scene');
-    document.getElementById('add-branch-btn').onclick = () => addNode('branch');
+    document.getElementById('add-scene-btn').onclick  = addNode;
     document.getElementById('auto-layout-btn').onclick = autoLayout;
 
     // エクスポート
@@ -197,21 +196,16 @@ function drawNode(node) {
     g.dataset.id = node.id;
     g.setAttribute('transform', `translate(${node.x},${node.y})`);
 
-    if (node.type === 'branch') {
-        drawDiamond(g, node);
-    } else {
-        drawRect(g, node);
-    }
+    // 常に角丸四角で描画
+    drawRect(g, node);
 
     // 接続ポイント（下）
     const cp = svgEl('circle');
     cp.classList.add('connect-point');
-    const cpX = node.type === 'branch' ? DIAMOND_W / 2 : NODE_W / 2;
-    const cpY = node.type === 'branch' ? DIAMOND_H : NODE_H;
-    cp.setAttribute('cx', cpX);
-    cp.setAttribute('cy', cpY);
+    cp.setAttribute('cx', NODE_W / 2);
+    cp.setAttribute('cy', NODE_H);
     cp.setAttribute('r', '7');
-    cp.setAttribute('fill', node.type === 'branch' ? '#FF9800' : '#4CAF50');
+    cp.setAttribute('fill', '#4CAF50');
     cp.setAttribute('stroke', '#fff');
     cp.setAttribute('stroke-width', '2');
     cp.addEventListener('mousedown', e => { e.stopPropagation(); startConnect(node.id); });
@@ -251,29 +245,6 @@ function drawRect(g, node) {
     });
 }
 
-function drawDiamond(g, node) {
-    const W = DIAMOND_W, H = DIAMOND_H;
-    const cx = W / 2, cy = H / 2;
-    const diamond = svgEl('polygon');
-    diamond.classList.add('node-diamond');
-    diamond.setAttribute('points', `${cx},0 ${W},${cy} ${cx},${H} 0,${cy}`);
-    diamond.setAttribute('fill', node.color || '#FFF8E1');
-    g.appendChild(diamond);
-
-    // テキスト（中央）- 日時・場所のみ
-    const titleLines = wrapText(node.title || '分岐', W - 24, 11);
-    titleLines.slice(0, 3).forEach((line, i) => {
-        const t = svgEl('text');
-        t.classList.add('node-title');
-        t.setAttribute('x', cx);
-        t.setAttribute('y', cy - 10 + i * 13);
-        t.setAttribute('text-anchor', 'middle');
-        t.setAttribute('dominant-baseline', 'middle');
-        t.textContent = line;
-        g.appendChild(t);
-    });
-}
-
 // ---- 接続線描画 ----
 function drawConnection(conn) {
     const p = getProject();
@@ -282,10 +253,10 @@ function drawConnection(conn) {
     if (!fn || !tn) return;
 
     // 出発点：ノード下中央
-    const fx = fn.x + (fn.type === 'branch' ? DIAMOND_W / 2 : NODE_W / 2);
-    const fy = fn.y + (fn.type === 'branch' ? DIAMOND_H : NODE_H);
+    const fx = fn.x + NODE_W / 2;
+    const fy = fn.y + NODE_H;
     // 到着点：ノード上中央
-    const tx = tn.x + (tn.type === 'branch' ? DIAMOND_W / 2 : NODE_W / 2);
+    const tx = tn.x + NODE_W / 2;
     const ty = tn.y;
 
     // 縦方向はストレート、斜めは曲線
@@ -342,19 +313,19 @@ function drawConnection(conn) {
 // ============================================================
 // ノード追加
 // ============================================================
-function addNode(type) {
+function addNode() {
     const p = getProject();
     // 既存ノードの最下部に配置
-    const maxY = p.nodes.reduce((m, n) => Math.max(m, n.y + (n.type === 'branch' ? DIAMOND_H : NODE_H)), 0);
+    const maxY = p.nodes.reduce((m, n) => Math.max(m, n.y + NODE_H), 0);
     const node = {
         id: uid(),
-        type: type || 'scene',
+        type: 'scene',
         x: 80,
         y: maxY + GRID_ROW_H,
         title: '',
         npc: '',
         content: '',
-        color: type === 'branch' ? '#FFF8E1' : '#ffffff'
+        color: '#ffffff'
     };
     p.nodes.push(node);
     p.updatedAt = Date.now();
@@ -364,43 +335,26 @@ function addNode(type) {
 }
 
 // ============================================================
-// 自動整列
+// 自動整列（縦1列）
 // ============================================================
 function autoLayout() {
     const p = getProject();
     if (!p.nodes.length) return;
 
-    // トポロジカルソート
+    // トポロジカルソートで順序を決定
     const sorted = topSort(p);
 
-    // 階層（レベル）を割り当て
-    const level = {};
+    // 縦1列に配置（中央寄せ）
+    const centerX = 200; // 画面中央付近
     sorted.forEach((node, i) => {
-        // このノードへの接続元の最大レベル+1
-        const preds = p.connections.filter(c => c.to === node.id).map(c => level[c.from] ?? -1);
-        level[node.id] = preds.length ? Math.max(...preds) + 1 : 0;
-    });
-
-    // 同じレベルのノードを横に並べる
-    const levelGroups = {};
-    p.nodes.forEach(n => {
-        const lv = level[n.id] ?? 0;
-        if (!levelGroups[lv]) levelGroups[lv] = [];
-        levelGroups[lv].push(n);
-    });
-
-    Object.entries(levelGroups).forEach(([lv, nodes]) => {
-        const totalW = nodes.length * GRID_COL_W;
-        nodes.forEach((n, i) => {
-            n.x = i * GRID_COL_W + 60;
-            n.y = Number(lv) * GRID_ROW_H + 60;
-        });
+        node.x = centerX;
+        node.y = 60 + i * GRID_ROW_H;
     });
 
     p.updatedAt = Date.now();
     save();
     renderChart();
-    notify('自動整列しました');
+    notify('縦1列に整列しました');
 }
 
 // ============================================================
@@ -412,30 +366,13 @@ function openNodeEditor(nodeId) {
     if (!node) return;
     selectedNode = nodeId;
 
-    // 種類選択
-    document.querySelector(`input[name="node-type"][value="${node.type || 'scene'}"]`).checked = true;
     document.getElementById('node-title').value   = node.title || '';
     document.getElementById('node-npc').value     = node.npc || '';
     document.getElementById('node-content').value = node.content || '';
     document.getElementById('node-color').value   = node.color || '#ffffff';
 
-    // 分岐ノードならNPC欄を非表示
-    document.getElementById('npc-group').style.display = node.type === 'branch' ? 'none' : '';
-
-    document.getElementById('editor-title').textContent = node.type === 'branch' ? '分岐ノード編集' : 'シーンノード編集';
     nodeEditorModal.classList.remove('hidden');
 }
-
-// ノード種類変更でNPC欄トグル
-document.querySelectorAll('input[name="node-type"]').forEach(r => {
-    r.addEventListener('change', () => {
-        document.getElementById('npc-group').style.display = r.value === 'branch' ? 'none' : '';
-        document.getElementById('editor-title').textContent = r.value === 'branch' ? '分岐ノード編集' : 'シーンノード編集';
-        if (r.value === 'branch' && document.getElementById('node-color').value === '#ffffff') {
-            document.getElementById('node-color').value = '#FFF8E1';
-        }
-    });
-});
 
 function closeNodeEditor() {
     nodeEditorModal.classList.add('hidden');
@@ -448,7 +385,7 @@ function saveNode() {
     const node = p.nodes.find(n => n.id === selectedNode);
     if (!node) return;
 
-    node.type    = document.querySelector('input[name="node-type"]:checked').value;
+    node.type    = 'scene';
     node.title   = document.getElementById('node-title').value;
     node.npc     = document.getElementById('node-npc').value;
     node.content = document.getElementById('node-content').value;
