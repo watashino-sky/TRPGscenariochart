@@ -335,7 +335,7 @@ function addNode() {
 }
 
 // ============================================================
-// 自動整列（分岐は横並び）
+// 自動整列（分岐は横並び、矢印が重ならないように）
 // ============================================================
 function autoLayout() {
     const p = getProject();
@@ -347,10 +347,9 @@ function autoLayout() {
     // 各ノードのレベル（階層）を計算
     const level = {};
     sorted.forEach(node => {
-        // このノードへの接続元の最大レベル+1
         const incoming = p.connections.filter(c => c.to === node.id);
         if (incoming.length === 0) {
-            level[node.id] = 0; // ルートノード
+            level[node.id] = 0;
         } else {
             const maxParentLevel = Math.max(...incoming.map(c => level[c.from] ?? 0));
             level[node.id] = maxParentLevel + 1;
@@ -365,30 +364,70 @@ function autoLayout() {
         levels[lv].push(node);
     });
 
+    // 各ノードのX位置を記録（矢印の交差を避けるため）
+    const nodeX = {};
+
     // 各レベルのノードを配置
-    Object.entries(levels).forEach(([lv, nodes]) => {
+    Object.keys(levels).sort((a, b) => Number(a) - Number(b)).forEach(lv => {
+        const nodes = levels[lv];
         const levelNum = Number(lv);
         const y = 60 + levelNum * GRID_ROW_H;
         
         if (nodes.length === 1) {
-            // 1つだけなら中央
-            nodes[0].x = 200;
-            nodes[0].y = y;
+            // 1つだけの場合
+            const node = nodes[0];
+            
+            // 親ノードのX座標の平均を取る（矢印がまっすぐになるように）
+            const parents = p.connections.filter(c => c.to === node.id).map(c => c.from);
+            if (parents.length > 0 && parents.every(pid => nodeX[pid] !== undefined)) {
+                const avgParentX = parents.reduce((sum, pid) => sum + nodeX[pid], 0) / parents.length;
+                node.x = avgParentX;
+            } else {
+                node.x = 200; // デフォルト中央
+            }
+            node.y = y;
+            nodeX[node.id] = node.x;
+            
         } else {
-            // 複数（分岐）なら横並び
-            const totalWidth = nodes.length * GRID_COL_W;
-            const startX = 200 - totalWidth / 2 + GRID_COL_W / 2;
-            nodes.forEach((node, i) => {
-                node.x = startX + i * GRID_COL_W;
-                node.y = y;
-            });
+            // 複数（分岐）の場合は横並び
+            // 親ノードから出る矢印の順序に従って左から配置
+            const parent = p.connections.find(c => nodes.some(n => n.id === c.to));
+            
+            if (parent) {
+                // 親ノードのX座標を中心に横並び
+                const parentX = nodeX[parent.from] ?? 200;
+                const totalWidth = nodes.length * GRID_COL_W;
+                const startX = parentX - totalWidth / 2 + GRID_COL_W / 2;
+                
+                // 親からの接続順でソート（左から右へ）
+                const sortedNodes = [...nodes].sort((a, b) => {
+                    const aConn = p.connections.find(c => c.from === parent.from && c.to === a.id);
+                    const bConn = p.connections.find(c => c.from === parent.from && c.to === b.id);
+                    return (aConn?.label || '').localeCompare(bConn?.label || '');
+                });
+                
+                sortedNodes.forEach((node, i) => {
+                    node.x = startX + i * GRID_COL_W;
+                    node.y = y;
+                    nodeX[node.id] = node.x;
+                });
+            } else {
+                // 親がいない場合は均等配置
+                const totalWidth = nodes.length * GRID_COL_W;
+                const startX = 200 - totalWidth / 2 + GRID_COL_W / 2;
+                nodes.forEach((node, i) => {
+                    node.x = startX + i * GRID_COL_W;
+                    node.y = y;
+                    nodeX[node.id] = node.x;
+                });
+            }
         }
     });
 
     p.updatedAt = Date.now();
     save();
     renderChart();
-    notify('自動整列しました（分岐は横並び）');
+    notify('自動整列しました');
 }
 
 // ============================================================
