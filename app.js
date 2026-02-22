@@ -259,13 +259,30 @@ function drawConnection(conn) {
     const tx = tn.x + NODE_W / 2;
     const ty = tn.y;
 
-    // 縦方向はストレート、斜めは曲線
     const dx = tx - fx;
     const dy = ty - fy;
-    const midY = fy + dy * 0.5;
-    const d = Math.abs(dx) < 20
-        ? `M ${fx} ${fy} L ${tx} ${ty}`
-        : `M ${fx} ${fy} C ${fx} ${midY}, ${tx} ${midY}, ${tx} ${ty}`;
+
+    let d;
+    
+    // 上向き（ループバック）の場合は迂回
+    if (dy < 0) {
+        // 右側に大きく迂回する曲線
+        const offsetX = 180; // 右側への迂回量
+        const midY = (fy + ty) / 2;
+        
+        d = `M ${fx} ${fy} 
+             C ${fx} ${fy + 30}, ${fx + offsetX} ${fy + 30}, ${fx + offsetX} ${midY}
+             C ${fx + offsetX} ${ty - 30}, ${tx} ${ty - 30}, ${tx} ${ty}`;
+    } 
+    // 横方向の移動が大きい場合（斜め）はS字曲線
+    else if (Math.abs(dx) > 20) {
+        const midY = fy + dy * 0.5;
+        d = `M ${fx} ${fy} C ${fx} ${midY}, ${tx} ${midY}, ${tx} ${ty}`;
+    } 
+    // 縦方向（まっすぐ下）は直線
+    else {
+        d = `M ${fx} ${fy} L ${tx} ${ty}`;
+    }
 
     // クリック用の太い透明線
     const hit = svgEl('path');
@@ -284,14 +301,24 @@ function drawConnection(conn) {
 
     // ラベル
     if (conn.label) {
-        const midX = (fx + tx) / 2;
-        const labelY = (fy + ty) / 2;
+        let labelX, labelY;
+        
+        if (dy < 0) {
+            // 上向きの場合は右側の中間点
+            labelX = fx + 180;
+            labelY = (fy + ty) / 2;
+        } else {
+            // 通常は中間点
+            labelX = (fx + tx) / 2;
+            labelY = (fy + ty) / 2;
+        }
+        
         const lw = conn.label.length * 8 + 14;
         const lh = 20;
 
         const bg = svgEl('rect');
         bg.classList.add('conn-label-bg');
-        bg.setAttribute('x', midX - lw / 2);
+        bg.setAttribute('x', labelX - lw / 2);
         bg.setAttribute('y', labelY - lh / 2);
         bg.setAttribute('width', lw);
         bg.setAttribute('height', lh);
@@ -302,7 +329,7 @@ function drawConnection(conn) {
 
         const lt = svgEl('text');
         lt.classList.add('conn-label-text');
-        lt.setAttribute('x', midX);
+        lt.setAttribute('x', labelX);
         lt.setAttribute('y', labelY + 5);
         lt.setAttribute('text-anchor', 'middle');
         lt.textContent = conn.label;
