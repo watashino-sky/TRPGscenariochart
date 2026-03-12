@@ -29,6 +29,7 @@
             </div>
             <div class="header-buttons">
                 <button id="add-scene-btn" class="primary-btn">＋ ノード追加</button>
+                <button id="manage-characters-btn" class="secondary-btn">👥 キャラクター管理</button>
                 <button id="auto-layout-btn" class="secondary-btn">自動整列</button>
                 <button id="export-cocofolia-btn" class="secondary-btn">ココフォリア出力</button>
                 <button id="export-text-btn" class="secondary-btn">テキスト出力</button>
@@ -56,34 +57,52 @@
 
     <!-- ノード編集モーダル -->
     <div id="node-editor-modal" class="modal hidden">
-        <div class="modal-content">
+        <div class="modal-content large">
             <div class="modal-header">
                 <h2 id="editor-title">ノード編集</h2>
                 <button id="close-editor-btn" class="close-btn">×</button>
             </div>
             <div class="modal-body">
+                <!-- Scenes設定 -->
+                <div class="section-header">📍 Scenes（シーン）設定</div>
                 <div class="form-group">
-                    <label>日時・場所</label>
-                    <input type="text" id="node-title" placeholder="例：2024年4月1日 10:00 / 病院の受付">
+                    <label>シーン名</label>
+                    <input type="text" id="scene-name" placeholder="例：導入、街中、病院">
                 </div>
                 <div class="form-group">
-                    <label>登場NPC</label>
-                    <input type="text" id="node-npc" placeholder="例：看護師、医師">
+                    <label>背景色</label>
+                    <div class="color-picker">
+                        <input type="color" id="scene-bg-color" value="#888888">
+                        <input type="text" id="scene-bg-color-text" placeholder="#888888" maxlength="7" style="width: 100px;">
+                    </div>
                 </div>
+                
+                <!-- 作業メモ（ココフォリア反映なし） -->
+                <div class="section-header">📝 作業メモ（ココフォリア反映なし）</div>
                 <div class="form-group">
-                    <label>本文</label>
-                    <textarea id="node-content" rows="12" placeholder="描写や探索箇所、情報などを記述
+                    <label>登場キャラクターなどのメモ</label>
+                    <textarea id="work-memo" rows="3" placeholder="このシーンの登場キャラクターや注意点など（ココフォリアには出力されません）"></textarea>
+                </div>
 
-探索箇所A
-＞情報1
-＞情報2
-
-〈技能判定〉
-成功：テキスト
-失敗：テキスト"></textarea>
-                </div>
+                <!-- Scenes本文 -->
+                <div class="section-header">📄 Scenes本文</div>
                 <div class="form-group">
-                    <label>ノードの色</label>
+                    <textarea id="scene-content" rows="8" placeholder="このシーンの描写や情報を記述してください"></textarea>
+                </div>
+
+                <!-- 追加テキストエリア -->
+                <div class="section-header">➕ 追加コンテンツ</div>
+                <div id="additional-contents">
+                    <!-- 動的に追加されるNotes/Items -->
+                </div>
+                <div class="add-content-buttons">
+                    <button type="button" id="add-note-btn" class="secondary-btn">＋ Notesを追加</button>
+                    <button type="button" id="add-item-btn" class="secondary-btn">＋ Itemsを追加</button>
+                </div>
+
+                <!-- ノードの色 -->
+                <div class="section-header">🎨 ノードの色（フローチャート表示用）</div>
+                <div class="form-group">
                     <div class="color-picker">
                         <input type="color" id="node-color" value="#ffffff">
                         <div class="color-presets">
@@ -121,6 +140,25 @@
             <div class="modal-footer">
                 <button id="delete-connection-btn" class="danger-btn">削除</button>
                 <button id="save-connection-btn" class="primary-btn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- キャラクター管理モーダル -->
+    <div id="characters-modal" class="modal hidden">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>キャラクター管理</h2>
+                <button id="close-characters-btn" class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="characters-list">
+                    <!-- キャラクター一覧 -->
+                </div>
+                <button type="button" id="add-character-btn" class="primary-btn" style="margin-top: 10px;">＋ キャラクター追加</button>
+            </div>
+            <div class="modal-footer">
+                <button id="close-characters-done-btn" class="primary-btn">完了</button>
             </div>
         </div>
     </div>

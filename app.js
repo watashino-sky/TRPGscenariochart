@@ -74,6 +74,12 @@ function setupListeners() {
     // ノード追加
     document.getElementById('add-scene-btn').onclick  = addNode;
     document.getElementById('auto-layout-btn').onclick = autoLayout;
+    
+    // キャラクター管理
+    document.getElementById('manage-characters-btn').onclick = openCharactersModal;
+    document.getElementById('close-characters-btn').onclick = closeCharactersModal;
+    document.getElementById('close-characters-done-btn').onclick = closeCharactersModal;
+    document.getElementById('add-character-btn').onclick = addCharacter;
 
     // エクスポート
     document.getElementById('export-cocofolia-btn').onclick = exportCocofolia;
@@ -83,6 +89,8 @@ function setupListeners() {
     document.getElementById('close-editor-btn').onclick  = closeNodeEditor;
     document.getElementById('save-node-btn').onclick     = saveNode;
     document.getElementById('delete-node-btn').onclick   = deleteNode;
+    document.getElementById('add-note-btn').onclick = () => addAdditionalContent('note');
+    document.getElementById('add-item-btn').onclick = () => addAdditionalContent('item');
     document.getElementById('node-color').addEventListener('input', e => {
         document.getElementById('node-color').value = e.target.value;
     });
@@ -348,10 +356,14 @@ function addNode() {
         type: 'scene',
         x: 80,
         y: maxY + GRID_ROW_H,
-        title: '',
-        npc: '',
-        content: '',
-        color: '#ffffff'
+        title: '', // フローチャート表示用（旧データ互換性のため残す）
+        color: '#ffffff',
+        // ココフォリア用データ
+        sceneName: '',
+        sceneBackgroundColor: '#888888',
+        workMemo: '',
+        sceneContent: '',
+        additionalContents: [] // { type: 'note'|'item', title: '', text: '' }
     };
     p.nodes.push(node);
     p.updatedAt = Date.now();
@@ -465,13 +477,96 @@ function openNodeEditor(nodeId) {
     if (!node) return;
     selectedNode = nodeId;
 
-    document.getElementById('node-title').value   = node.title || '';
-    document.getElementById('node-npc').value     = node.npc || '';
-    document.getElementById('node-content').value = node.content || '';
-    document.getElementById('node-color').value   = node.color || '#ffffff';
+    // 旧データとの互換性
+    if (!node.sceneName && node.title) node.sceneName = node.title;
+    if (!node.sceneContent && node.content) node.sceneContent = node.content;
+    if (!node.workMemo && node.npc) node.workMemo = node.npc;
+    if (!node.sceneBackgroundColor) node.sceneBackgroundColor = '#888888';
+    if (!node.additionalContents) node.additionalContents = [];
 
+    document.getElementById('scene-name').value = node.sceneName || '';
+    document.getElementById('scene-bg-color').value = node.sceneBackgroundColor || '#888888';
+    document.getElementById('scene-bg-color-text').value = node.sceneBackgroundColor || '#888888';
+    document.getElementById('work-memo').value = node.workMemo || '';
+    document.getElementById('scene-content').value = node.sceneContent || '';
+    document.getElementById('node-color').value = node.color || '#ffffff';
+
+    // 背景色の連動
+    document.getElementById('scene-bg-color').oninput = (e) => {
+        document.getElementById('scene-bg-color-text').value = e.target.value;
+    };
+    document.getElementById('scene-bg-color-text').oninput = (e) => {
+        const val = e.target.value;
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+            document.getElementById('scene-bg-color').value = val;
+        }
+    };
+
+    renderAdditionalContents();
     nodeEditorModal.classList.remove('hidden');
 }
+
+function renderAdditionalContents() {
+    const p = getProject();
+    const node = p.nodes.find(n => n.id === selectedNode);
+    if (!node || !node.additionalContents) return;
+
+    const container = document.getElementById('additional-contents');
+    container.innerHTML = '';
+
+    node.additionalContents.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'additional-content-item';
+        div.innerHTML = `
+            <div class="additional-content-header">
+                <span class="additional-content-type">${item.type === 'note' ? '📝 Note' : '🎴 Item'}</span>
+                <button type="button" class="remove-content-btn" onclick="removeAdditionalContent(${idx})">削除</button>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+                <input type="text" placeholder="タイトル" value="${esc(item.title || '')}" onchange="updateAdditionalContent(${idx}, 'title', this.value)">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <textarea rows="3" placeholder="本文" onchange="updateAdditionalContent(${idx}, 'text', this.value)">${esc(item.text || '')}</textarea>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function addAdditionalContent(type) {
+    const p = getProject();
+    const node = p.nodes.find(n => n.id === selectedNode);
+    if (!node) return;
+    if (!node.additionalContents) node.additionalContents = [];
+    node.additionalContents.push({ type, title: '', text: '' });
+    p.updatedAt = Date.now();
+    save();
+    renderAdditionalContents();
+}
+
+function removeAdditionalContent(idx) {
+    const p = getProject();
+    const node = p.nodes.find(n => n.id === selectedNode);
+    if (!node) return;
+    node.additionalContents.splice(idx, 1);
+    p.updatedAt = Date.now();
+    save();
+    renderAdditionalContents();
+}
+
+function updateAdditionalContent(idx, field, value) {
+    const p = getProject();
+    const node = p.nodes.find(n => n.id === selectedNode);
+    if (!node) return;
+    node.additionalContents[idx][field] = value;
+    p.updatedAt = Date.now();
+    save();
+}
+
+// グローバルに公開
+window.addAdditionalContent = addAdditionalContent;
+window.removeAdditionalContent = removeAdditionalContent;
+window.updateAdditionalContent = updateAdditionalContent;
 
 function closeNodeEditor() {
     nodeEditorModal.classList.add('hidden');
@@ -484,11 +579,14 @@ function saveNode() {
     const node = p.nodes.find(n => n.id === selectedNode);
     if (!node) return;
 
-    node.type    = 'scene';
-    node.title   = document.getElementById('node-title').value;
-    node.npc     = document.getElementById('node-npc').value;
-    node.content = document.getElementById('node-content').value;
-    node.color   = document.getElementById('node-color').value;
+    node.sceneName = document.getElementById('scene-name').value;
+    node.sceneBackgroundColor = document.getElementById('scene-bg-color').value;
+    node.workMemo = document.getElementById('work-memo').value;
+    node.sceneContent = document.getElementById('scene-content').value;
+    node.color = document.getElementById('node-color').value;
+    
+    // フローチャート表示用（互換性のため）
+    node.title = node.sceneName;
 
     p.updatedAt = Date.now();
     save();
@@ -736,30 +834,112 @@ async function exportCocofolia() {
 
     // トポロジカルソート順でシーンを並べる
     const sorted = topSort(p);
+    
+    if (!p.characters) p.characters = [];
 
-    // ココフォリア用のscenario.jsonを作成
-    const scenarioData = {
-        title: p.name,
-        description: `TRPGシナリオチャートで作成されたシナリオ（${sorted.length}シーン）`,
-        scenes: sorted.map((node, i) => {
-            let content = node.content || '';
-            
-            // NPCがあれば追記
-            if (node.npc) {
-                content = `登場NPC: ${node.npc}\n\n${content}`;
-            }
-            
-            return {
-                title: node.title || `シーン${i + 1}`,
-                content: content
-            };
-        })
+    // ココフォリア用の__data.jsonを作成
+    const data = {
+        meta: { version: "1.1.0" },
+        entities: {
+            room: {
+                id: uid(),
+                name: p.name,
+                diceBot: "Cthulhu7th"
+            },
+            notes: {},
+            characters: {},
+            scenes: {},
+            items: {},
+            decks: {},
+            effects: {},
+            savedatas: {},
+            snapshots: {}
+        }
     };
+
+    // Notes を追加
+    let noteOrder = 0;
+    sorted.forEach(node => {
+        if (node.additionalContents) {
+            node.additionalContents.filter(c => c.type === 'note').forEach(note => {
+                const id = uid();
+                data.entities.notes[id] = {
+                    id,
+                    name: note.title || 'メモ',
+                    text: note.text || '',
+                    order: noteOrder++,
+                    iconUrl: ""
+                };
+            });
+        }
+    });
+
+    // Characters を追加
+    p.characters.forEach(char => {
+        const id = char.id || uid();
+        data.entities.characters[id] = {
+            id,
+            name: char.name || 'キャラクター',
+            playerName: char.playerName || '',
+            color: "#888888",
+            commands: char.commands || '',
+            status: char.status || [],
+            x: 0,
+            y: 0,
+            z: 0,
+            width: 4,
+            height: 4,
+            active: true,
+            secret: false,
+            invisible: false,
+            initiative: null,
+            externalUrl: "",
+            chatPalette: "",
+            rotation: 0
+        };
+    });
+
+    // Scenes を追加
+    sorted.forEach((node, i) => {
+        const id = node.id;
+        data.entities.scenes[id] = {
+            id,
+            name: node.sceneName || node.title || `シーン${i + 1}`,
+            text: node.sceneContent || '',
+            backgroundColor: node.sceneBackgroundColor || '#888888',
+            backgroundUrl: null,
+            width: 80,
+            height: 45,
+            order: i
+        };
+    });
+
+    // Items を追加
+    sorted.forEach(node => {
+        if (node.additionalContents) {
+            node.additionalContents.filter(c => c.type === 'item').forEach(item => {
+                const id = uid();
+                data.entities.items[id] = {
+                    id,
+                    text: item.title || 'カード',
+                    memo: item.text || '',
+                    imageUrl: null,
+                    x: 0,
+                    y: 0,
+                    z: 0,
+                    width: 10,
+                    height: 10,
+                    locked: false,
+                    invisible: false
+                };
+            });
+        }
+    });
 
     try {
         // JSZipでZIPファイルを作成
         const zip = new JSZip();
-        zip.file('scenario.json', JSON.stringify(scenarioData, null, 2));
+        zip.file('__data.json', JSON.stringify(data, null, 2));
 
         // ZIPをBlob化してダウンロード
         const blob = await zip.generateAsync({ type: 'blob' });
@@ -887,6 +1067,146 @@ function topSort(p) {
     nodes.forEach(n => { if (!result.includes(n)) result.push(n); });
     return result;
 }
+
+// ============================================================
+// キャラクター管理
+// ============================================================
+function openCharactersModal() {
+    const modal = document.getElementById('characters-modal');
+    renderCharactersList();
+    modal.classList.remove('hidden');
+}
+
+function closeCharactersModal() {
+    document.getElementById('characters-modal').classList.add('hidden');
+}
+
+function renderCharactersList() {
+    const p = getProject();
+    if (!p.characters) p.characters = [];
+    
+    const list = document.getElementById('characters-list');
+    list.innerHTML = '';
+    
+    if (p.characters.length === 0) {
+        list.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">キャラクターがありません</p>';
+        return;
+    }
+    
+    p.characters.forEach((char, idx) => {
+        const card = document.createElement('div');
+        card.className = 'character-card';
+        card.innerHTML = `
+            <div class="character-card-header">
+                <span class="character-card-title">${esc(char.name || 'キャラクター' + (idx + 1))}</span>
+                <button class="danger-btn" onclick="deleteCharacter(${idx})">削除</button>
+            </div>
+            <div class="form-group">
+                <label>キャラクター名</label>
+                <input type="text" value="${esc(char.name)}" onchange="updateCharacter(${idx}, 'name', this.value)">
+            </div>
+            <div class="form-group">
+                <label>プレイヤー名</label>
+                <input type="text" value="${esc(char.playerName)}" onchange="updateCharacter(${idx}, 'playerName', this.value)">
+            </div>
+            <div class="form-group">
+                <label>ステータス</label>
+                <div class="status-list" id="status-list-${idx}"></div>
+                <button type="button" class="secondary-btn" onclick="addStatus(${idx})" style="margin-top:8px;font-size:12px;">+ ステータス追加</button>
+            </div>
+            <div class="form-group">
+                <label>チャットパレット</label>
+                <textarea rows="4" onchange="updateCharacter(${idx}, 'commands', this.value)">${esc(char.commands || '')}</textarea>
+            </div>
+        `;
+        list.appendChild(card);
+        
+        renderStatusList(idx);
+    });
+}
+
+function renderStatusList(charIdx) {
+    const p = getProject();
+    const char = p.characters[charIdx];
+    if (!char.status) char.status = [];
+    
+    const statusList = document.getElementById(`status-list-${charIdx}`);
+    statusList.innerHTML = '';
+    
+    char.status.forEach((st, stIdx) => {
+        const div = document.createElement('div');
+        div.className = 'status-item';
+        div.innerHTML = `
+            <input type="text" placeholder="ラベル" value="${esc(st.label)}" onchange="updateStatus(${charIdx}, ${stIdx}, 'label', this.value)">
+            <input type="text" placeholder="値" value="${esc(st.value)}" onchange="updateStatus(${charIdx}, ${stIdx}, 'value', this.value)">
+            <input type="text" placeholder="最大" value="${esc(st.max)}" onchange="updateStatus(${charIdx}, ${stIdx}, 'max', this.value)">
+            <button class="danger-btn" onclick="removeStatus(${charIdx}, ${stIdx})">×</button>
+        `;
+        statusList.appendChild(div);
+    });
+}
+
+function addCharacter() {
+    const p = getProject();
+    if (!p.characters) p.characters = [];
+    p.characters.push({
+        id: uid(),
+        name: '',
+        playerName: '',
+        status: [],
+        commands: ''
+    });
+    p.updatedAt = Date.now();
+    save();
+    renderCharactersList();
+}
+
+function deleteCharacter(idx) {
+    if (!confirm('このキャラクターを削除しますか？')) return;
+    const p = getProject();
+    p.characters.splice(idx, 1);
+    p.updatedAt = Date.now();
+    save();
+    renderCharactersList();
+}
+
+function updateCharacter(idx, field, value) {
+    const p = getProject();
+    p.characters[idx][field] = value;
+    p.updatedAt = Date.now();
+    save();
+}
+
+function addStatus(charIdx) {
+    const p = getProject();
+    p.characters[charIdx].status.push({ label: '', value: '', max: '' });
+    p.updatedAt = Date.now();
+    save();
+    renderStatusList(charIdx);
+}
+
+function removeStatus(charIdx, stIdx) {
+    const p = getProject();
+    p.characters[charIdx].status.splice(stIdx, 1);
+    p.updatedAt = Date.now();
+    save();
+    renderStatusList(charIdx);
+}
+
+function updateStatus(charIdx, stIdx, field, value) {
+    const p = getProject();
+    p.characters[charIdx].status[stIdx][field] = value;
+    p.updatedAt = Date.now();
+    save();
+}
+
+// グローバルに公開
+window.addCharacter = addCharacter;
+window.deleteCharacter = deleteCharacter;
+window.updateCharacter = updateCharacter;
+window.addStatus = addStatus;
+window.removeStatus = removeStatus;
+window.updateStatus = updateStatus;
 
 // ============================================================
 // 起動

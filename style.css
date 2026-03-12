@@ -170,6 +170,7 @@ button {
 }
 
 .modal-content.small { max-width: 380px; }
+.modal-content.large { max-width: 800px; }
 
 .modal-header {
     padding: 18px 24px;
@@ -282,6 +283,112 @@ button {
 .empty-state { grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: #bbb; }
 .empty-state h3 { font-size: 22px; margin-bottom: 10px; }
 .empty-state p { font-size: 14px; }
+
+.empty-state { grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: #bbb; }
+.empty-state h3 { font-size: 22px; margin-bottom: 10px; }
+.empty-state p { font-size: 14px; }
+
+/* セクションヘッダー */
+.section-header {
+    font-weight: 700;
+    font-size: 14px;
+    color: #444;
+    margin: 20px 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.section-header:first-child {
+    margin-top: 0;
+}
+
+/* 追加コンテンツ */
+.additional-content-item {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #fafafa;
+}
+
+.additional-content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.additional-content-type {
+    font-weight: 600;
+    font-size: 13px;
+    color: #666;
+}
+
+.remove-content-btn {
+    background: #f44336;
+    color: white;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.add-content-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* キャラクターカード */
+.character-card {
+    border: 2px solid #4CAF50;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #f9fff9;
+}
+
+.character-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.character-card-title {
+    font-weight: 700;
+    font-size: 15px;
+    color: #2e7d32;
+}
+
+.status-list {
+    margin-top: 10px;
+}
+
+.status-item {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.status-item input {
+    flex: 1;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.status-item input:first-child {
+    flex: 2;
+}
+
+.status-item button {
+    padding: 4px 8px;
+    font-size: 11px;
+}
 
 @media (max-width: 768px) {
     .header { padding: 10px 12px; }
