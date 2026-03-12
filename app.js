@@ -76,9 +76,8 @@ function setupListeners() {
     document.getElementById('auto-layout-btn').onclick = autoLayout;
 
     // エクスポート
-    document.getElementById('export-json-btn').onclick = exportJSON;
+    document.getElementById('export-cocofolia-btn').onclick = exportCocofolia;
     document.getElementById('export-text-btn').onclick = exportText;
-    document.getElementById('export-pdf-btn').onclick  = exportPDF;
 
     // ノードエディタ
     document.getElementById('close-editor-btn').onclick  = closeNodeEditor;
@@ -728,9 +727,54 @@ function onWinTU() {
 // ============================================================
 // エクスポート / インポート
 // ============================================================
-function exportJSON() {
+async function exportCocofolia() {
     const p = getProject();
-    dl(JSON.stringify(p, null, 2), `${p.name}.json`, 'application/json');
+    if (!p.nodes.length) {
+        notify('シーンがありません');
+        return;
+    }
+
+    // トポロジカルソート順でシーンを並べる
+    const sorted = topSort(p);
+
+    // ココフォリア用のscenario.jsonを作成
+    const scenarioData = {
+        title: p.name,
+        description: `TRPGシナリオチャートで作成されたシナリオ（${sorted.length}シーン）`,
+        scenes: sorted.map((node, i) => {
+            let content = node.content || '';
+            
+            // NPCがあれば追記
+            if (node.npc) {
+                content = `登場NPC: ${node.npc}\n\n${content}`;
+            }
+            
+            return {
+                title: node.title || `シーン${i + 1}`,
+                content: content
+            };
+        })
+    };
+
+    try {
+        // JSZipでZIPファイルを作成
+        const zip = new JSZip();
+        zip.file('scenario.json', JSON.stringify(scenarioData, null, 2));
+
+        // ZIPをBlob化してダウンロード
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${p.name}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        notify('ココフォリア用ZIPを出力しました');
+    } catch (err) {
+        console.error(err);
+        notify('ZIP作成に失敗しました');
+    }
 }
 
 function exportProjectJSON(id) {

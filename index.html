@@ -30,9 +30,8 @@
             <div class="header-buttons">
                 <button id="add-scene-btn" class="primary-btn">＋ ノード追加</button>
                 <button id="auto-layout-btn" class="secondary-btn">自動整列</button>
-                <button id="export-json-btn" class="secondary-btn">JSON保存</button>
+                <button id="export-cocofolia-btn" class="secondary-btn">ココフォリア出力</button>
                 <button id="export-text-btn" class="secondary-btn">テキスト出力</button>
-                <button id="export-pdf-btn" class="secondary-btn">PDF出力</button>
             </div>
         </div>
         <div id="canvas-container">
@@ -147,6 +146,7 @@
     </div>
 
     <input type="file" id="import-file-input" accept=".json" style="display:none;">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
