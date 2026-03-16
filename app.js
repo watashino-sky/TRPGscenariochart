@@ -33,6 +33,7 @@ let isConnecting    = false;
 let connectingFrom  = null;
 let panStart        = { x: 0, y: 0 };
 let viewOffset      = { x: 60, y: 60 };
+let viewScale       = 0.7; // 初期表示倍率（0.7倍で引いて表示）
 let selectedNode    = null;
 let selectedConn    = null;
 
@@ -84,6 +85,7 @@ function setupListeners() {
     // エクスポート
     document.getElementById('export-cocofolia-btn').onclick = exportCocofolia;
     document.getElementById('export-text-btn').onclick = exportText;
+    document.getElementById('export-characters-text-btn').onclick = exportCharactersText;
 
     // ノードエディタ
     document.getElementById('close-editor-btn').onclick  = closeNodeEditor;
@@ -109,6 +111,7 @@ function setupListeners() {
     canvas.addEventListener('mousedown', onCanvasMD);
     window.addEventListener('mousemove', onWinMM);
     window.addEventListener('mouseup', onWinMU);
+    canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
 
     // キャンバス（タッチ）
     canvas.addEventListener('touchstart', onCanvasTS, { passive: false });
@@ -170,6 +173,7 @@ function openProject(id) {
     projectListScreen.classList.add('hidden');
     chartScreen.classList.remove('hidden');
     viewOffset = { x: 60, y: 60 };
+    viewScale = 0.7; // 初期表示倍率
     applyViewOffset();
     renderChart();
 }
@@ -192,8 +196,8 @@ function renderChart() {
 }
 
 function applyViewOffset() {
-    nodesLayer.setAttribute('transform', `translate(${viewOffset.x},${viewOffset.y})`);
-    connectionsLayer.setAttribute('transform', `translate(${viewOffset.x},${viewOffset.y})`);
+    nodesLayer.setAttribute('transform', `translate(${viewOffset.x},${viewOffset.y}) scale(${viewScale})`);
+    connectionsLayer.setAttribute('transform', `translate(${viewOffset.x},${viewOffset.y}) scale(${viewScale})`);
 }
 
 // ---- ノード描画 ----
@@ -745,6 +749,31 @@ function onWinMU(e) {
     if (isPanning) { isPanning = false; canvas.classList.remove('panning'); }
 }
 
+// マウスホイールでズーム
+function onCanvasWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    const newScale = Math.max(0.3, Math.min(2.0, viewScale + delta));
+    
+    // マウス位置を中心にズーム
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    // スケール変更前のマウス位置（ワールド座標）
+    const worldX = (mouseX - viewOffset.x) / viewScale;
+    const worldY = (mouseY - viewOffset.y) / viewScale;
+    
+    // スケール変更
+    viewScale = newScale;
+    
+    // スケール変更後もマウス位置が同じワールド座標を指すようにオフセット調整
+    viewOffset.x = mouseX - worldX * viewScale;
+    viewOffset.y = mouseY - worldY * viewScale;
+    
+    applyViewOffset();
+}
+
 // ============================================================
 // タッチ操作
 // ============================================================
@@ -832,8 +861,8 @@ async function exportCocofolia() {
         return;
     }
 
-    // トポロジカルソート順でシーンを並べる
-    const sorted = topSort(p);
+    // 座標順（左上から右下へ）でシーンを並べる
+    const sorted = positionSort(p);
     
     if (!p.characters) p.characters = [];
 
@@ -988,12 +1017,11 @@ function importProject() {
 
 function exportText() {
     const p = getProject();
-    const sorted = topSort(p);
+    const sorted = positionSort(p);
     let text = `■ ${p.name}\n${'='.repeat(40)}\n\n`;
     sorted.forEach((node, i) => {
-        text += `【${node.title || `シーン${i + 1}`}】\n`;
-        if (node.npc) text += `登場NPC：${node.npc}\n`;
-        text += `\n${node.content || '（本文なし）'}\n\n`;
+        text += `【${node.sceneName || node.title || `シーン${i + 1}`}】\n`;
+        text += `\n${node.sceneContent || node.content || '（本文なし）'}\n\n`;
         const outs = p.connections.filter(c => c.from === node.id);
         if (outs.length) {
             outs.forEach(c => {
@@ -1003,7 +1031,56 @@ function exportText() {
         }
         text += `\n${'-'.repeat(40)}\n\n`;
     });
-    navigator.clipboard.writeText(text).then(() => notify('テキストをコピーしました'));
+    navigator.clipboard.writeText(text).then(() => notify('シナリオテキストをコピーしました'));
+}
+
+function exportCharactersText() {
+    const p = getProject();
+    if (!p.characters || p.characters.length === 0) {
+        notify('キャラクターが登録されていません');
+        return;
+    }
+
+    let text = `■ ${p.name} - キャラクター一覧\n${'='.repeat(40)}\n\n`;
+    
+    p.characters.forEach((char, i) => {
+        text += `【${char.name || `キャラクター${i + 1}`}】\n`;
+        if (char.playerName) {
+            text += `PL: ${char.playerName}\n`;
+        }
+        text += `\n`;
+        
+        // ステータス
+        if (char.status && char.status.length > 0) {
+            text += `◆ ステータス\n`;
+            char.status.forEach(st => {
+                if (st.label) {
+                    text += `  ${st.label}: ${st.value}`;
+                    if (st.max) text += ` / ${st.max}`;
+                    text += `\n`;
+                }
+            });
+            text += `\n`;
+        }
+        
+        // チャットパレット
+        if (char.commands) {
+            text += `◆ チャットパレット\n`;
+            text += char.commands.split('\n').map(line => `  ${line}`).join('\n');
+            text += `\n\n`;
+        }
+        
+        // メモ（テキスト出力専用）
+        if (char.textOnlyMemo) {
+            text += `◆ メモ\n`;
+            text += char.textOnlyMemo.split('\n').map(line => `  ${line}`).join('\n');
+            text += `\n`;
+        }
+        
+        text += `\n${'-'.repeat(40)}\n\n`;
+    });
+    
+    navigator.clipboard.writeText(text).then(() => notify('キャラクター情報をコピーしました'));
 }
 
 function exportPDF() {
@@ -1068,6 +1145,21 @@ function topSort(p) {
     return result;
 }
 
+// 座標順ソート（左上から右下へ）
+function positionSort(p) {
+    const nodes = [...p.nodes];
+    // Y座標優先、次にX座標でソート
+    nodes.sort((a, b) => {
+        if (Math.abs(a.y - b.y) < 50) {
+            // ほぼ同じ高さなら左から右
+            return a.x - b.x;
+        }
+        // 上から下
+        return a.y - b.y;
+    });
+    return nodes;
+}
+
 // ============================================================
 // キャラクター管理
 // ============================================================
@@ -1117,6 +1209,10 @@ function renderCharactersList() {
             <div class="form-group">
                 <label>チャットパレット</label>
                 <textarea rows="4" onchange="updateCharacter(${idx}, 'commands', this.value)">${esc(char.commands || '')}</textarea>
+            </div>
+            <div class="form-group">
+                <label>メモ（テキスト出力専用・ココフォリア非反映）</label>
+                <textarea rows="3" placeholder="このキャラクターに関する補足情報など" onchange="updateCharacter(${idx}, 'textOnlyMemo', this.value)">${esc(char.textOnlyMemo || '')}</textarea>
             </div>
         `;
         list.appendChild(card);
