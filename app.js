@@ -494,6 +494,7 @@ function openNodeEditor(nodeId) {
     document.getElementById('scene-bg-color-text').value = node.sceneBackgroundColor || '#888888';
     document.getElementById('work-memo').value = node.workMemo || '';
     document.getElementById('scene-content').value = node.sceneContent || '';
+    document.getElementById('scene-also-as-item').checked = node.sceneAlsoAsItem || false;
     document.getElementById('node-color').value = node.color || '#ffffff';
 
     // 背景色の連動
@@ -521,9 +522,18 @@ function renderAdditionalContents() {
 
     node.additionalContents.forEach((item, idx) => {
         let typeLabel = '';
-        if (item.type === 'note') typeLabel = '📝 Note（ココフォリア）';
-        else if (item.type === 'item') typeLabel = '🎴 Item（ココフォリア）';
-        else if (item.type === 'memo') typeLabel = '📋 メモ（テキスト出力のみ）';
+        let showItemSwitch = false;
+        
+        if (item.type === 'note') {
+            typeLabel = '📝 Note（ココフォリア）';
+            showItemSwitch = true;
+        } else if (item.type === 'item') {
+            typeLabel = '🎴 Item（ココフォリア）';
+            showItemSwitch = false;
+        } else if (item.type === 'memo') {
+            typeLabel = '📋 メモ（テキスト出力のみ）';
+            showItemSwitch = false;
+        }
         
         const div = document.createElement('div');
         div.className = 'additional-content-item';
@@ -532,6 +542,14 @@ function renderAdditionalContents() {
                 <span class="additional-content-type">${typeLabel}</span>
                 <button type="button" class="remove-content-btn" onclick="removeAdditionalContent(${idx})">削除</button>
             </div>
+            ${showItemSwitch ? `
+            <div class="form-group" style="margin-bottom:8px;">
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
+                    <input type="checkbox" ${item.alsoAsItem ? 'checked' : ''} onchange="updateAdditionalContent(${idx}, 'alsoAsItem', this.checked)" style="width:auto;">
+                    Itemとしても出力する
+                </label>
+            </div>
+            ` : ''}
             <div class="form-group" style="margin-bottom:8px;">
                 <input type="text" placeholder="タイトル" value="${esc(item.title || '')}" onchange="updateAdditionalContent(${idx}, 'title', this.value)">
             </div>
@@ -593,6 +611,7 @@ function saveNode() {
     node.sceneBackgroundColor = document.getElementById('scene-bg-color').value;
     node.workMemo = document.getElementById('work-memo').value;
     node.sceneContent = document.getElementById('scene-content').value;
+    node.sceneAlsoAsItem = document.getElementById('scene-also-as-item').checked;
     node.color = document.getElementById('node-color').value;
     
     // フローチャート表示用（互換性のため）
@@ -951,22 +970,61 @@ async function exportCocofolia() {
 
     // Items を追加
     sorted.forEach(node => {
+        // Scenes本文がItemとしても出力される場合
+        if (node.sceneAlsoAsItem && node.sceneContent) {
+            const id = uid();
+            data.entities.items[id] = {
+                id,
+                text: node.sceneName || 'シーン',
+                memo: node.sceneContent || '',
+                imageUrl: null,
+                x: 0,
+                y: 0,
+                z: 0,
+                width: 10,
+                height: 10,
+                locked: false,
+                invisible: false
+            };
+        }
+        
+        // additionalContents
         if (node.additionalContents) {
-            node.additionalContents.filter(c => c.type === 'item').forEach(item => {
-                const id = uid();
-                data.entities.items[id] = {
-                    id,
-                    text: item.title || 'カード',
-                    memo: item.text || '',
-                    imageUrl: null,
-                    x: 0,
-                    y: 0,
-                    z: 0,
-                    width: 10,
-                    height: 10,
-                    locked: false,
-                    invisible: false
-                };
+            node.additionalContents.forEach(content => {
+                // itemタイプは常に出力
+                if (content.type === 'item') {
+                    const id = uid();
+                    data.entities.items[id] = {
+                        id,
+                        text: content.title || 'カード',
+                        memo: content.text || '',
+                        imageUrl: null,
+                        x: 0,
+                        y: 0,
+                        z: 0,
+                        width: 10,
+                        height: 10,
+                        locked: false,
+                        invisible: false
+                    };
+                }
+                // noteタイプでalsoAsItemがtrueの場合も出力
+                else if (content.type === 'note' && content.alsoAsItem) {
+                    const id = uid();
+                    data.entities.items[id] = {
+                        id,
+                        text: content.title || 'Note',
+                        memo: content.text || '',
+                        imageUrl: null,
+                        x: 0,
+                        y: 0,
+                        z: 0,
+                        width: 10,
+                        height: 10,
+                        locked: false,
+                        invisible: false
+                    };
+                }
             });
         }
     });
@@ -1035,27 +1093,17 @@ function exportText() {
             text += `\n（本文なし）\n\n`;
         }
         
-        // 追加コンテンツを入力順に出力（Note、Item、Memo全て含む）
+        // 追加コンテンツを入力順に出力（Note、Memo両方含む）
         if (node.additionalContents && node.additionalContents.length > 0) {
             node.additionalContents.forEach(item => {
-                let typePrefix = '';
-                let defaultTitle = '';
-                
-                if (item.type === 'note') {
-                    typePrefix = '📝';
-                    defaultTitle = 'Note';
-                } else if (item.type === 'item') {
-                    typePrefix = '🎴';
-                    defaultTitle = 'Item';
-                } else if (item.type === 'memo') {
-                    typePrefix = '📋';
-                    defaultTitle = 'メモ';
-                }
-                
-                text += `${typePrefix} ${item.title || defaultTitle}\n`;
-                if (item.text) {
-                    text += item.text.split('\n').map(line => `  ${line}`).join('\n');
-                    text += `\n\n`;
+                // memoタイプとnoteタイプのみテキスト出力に含める（itemは除外）
+                if (item.type === 'memo' || item.type === 'note') {
+                    const typePrefix = item.type === 'note' ? '📝' : '📋';
+                    text += `${typePrefix} ${item.title || (item.type === 'note' ? 'Note' : 'メモ')}\n`;
+                    if (item.text) {
+                        text += item.text.split('\n').map(line => `  ${line}`).join('\n');
+                        text += `\n\n`;
+                    }
                 }
             });
         }
