@@ -1035,18 +1035,29 @@ function exportText() {
             text += `\n（本文なし）\n\n`;
         }
         
-        // メモ（テキスト出力専用）
-        if (node.additionalContents) {
-            const memos = node.additionalContents.filter(c => c.type === 'memo');
-            if (memos.length > 0) {
-                memos.forEach(memo => {
-                    text += `◆ ${memo.title || 'メモ'}\n`;
-                    if (memo.text) {
-                        text += memo.text.split('\n').map(line => `  ${line}`).join('\n');
-                        text += `\n\n`;
-                    }
-                });
-            }
+        // 追加コンテンツを入力順に出力（Note、Item、Memo全て含む）
+        if (node.additionalContents && node.additionalContents.length > 0) {
+            node.additionalContents.forEach(item => {
+                let typePrefix = '';
+                let defaultTitle = '';
+                
+                if (item.type === 'note') {
+                    typePrefix = '📝';
+                    defaultTitle = 'Note';
+                } else if (item.type === 'item') {
+                    typePrefix = '🎴';
+                    defaultTitle = 'Item';
+                } else if (item.type === 'memo') {
+                    typePrefix = '📋';
+                    defaultTitle = 'メモ';
+                }
+                
+                text += `${typePrefix} ${item.title || defaultTitle}\n`;
+                if (item.text) {
+                    text += item.text.split('\n').map(line => `  ${line}`).join('\n');
+                    text += `\n\n`;
+                }
+            });
         }
         
         const outs = p.connections.filter(c => c.from === node.id);
