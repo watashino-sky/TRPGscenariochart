@@ -93,6 +93,7 @@ function setupListeners() {
     document.getElementById('delete-node-btn').onclick   = deleteNode;
     document.getElementById('add-note-btn').onclick = () => addAdditionalContent('note');
     document.getElementById('add-item-btn').onclick = () => addAdditionalContent('item');
+    document.getElementById('add-memo-btn').onclick = () => addAdditionalContent('memo');
     document.getElementById('node-color').addEventListener('input', e => {
         document.getElementById('node-color').value = e.target.value;
     });
@@ -519,11 +520,16 @@ function renderAdditionalContents() {
     container.innerHTML = '';
 
     node.additionalContents.forEach((item, idx) => {
+        let typeLabel = '';
+        if (item.type === 'note') typeLabel = '📝 Note（ココフォリア）';
+        else if (item.type === 'item') typeLabel = '🎴 Item（ココフォリア）';
+        else if (item.type === 'memo') typeLabel = '📋 メモ（テキスト出力のみ）';
+        
         const div = document.createElement('div');
         div.className = 'additional-content-item';
         div.innerHTML = `
             <div class="additional-content-header">
-                <span class="additional-content-type">${item.type === 'note' ? '📝 Note' : '🎴 Item'}</span>
+                <span class="additional-content-type">${typeLabel}</span>
                 <button type="button" class="remove-content-btn" onclick="removeAdditionalContent(${idx})">削除</button>
             </div>
             <div class="form-group" style="margin-bottom:8px;">
@@ -1021,12 +1027,33 @@ function exportText() {
     let text = `■ ${p.name}\n${'='.repeat(40)}\n\n`;
     sorted.forEach((node, i) => {
         text += `【${node.sceneName || node.title || `シーン${i + 1}`}】\n`;
-        text += `\n${node.sceneContent || node.content || '（本文なし）'}\n\n`;
+        
+        const content = node.sceneContent || node.content || '';
+        if (content) {
+            text += `\n〝${content}〟\n\n`;
+        } else {
+            text += `\n（本文なし）\n\n`;
+        }
+        
+        // メモ（テキスト出力専用）
+        if (node.additionalContents) {
+            const memos = node.additionalContents.filter(c => c.type === 'memo');
+            if (memos.length > 0) {
+                memos.forEach(memo => {
+                    text += `◆ ${memo.title || 'メモ'}\n`;
+                    if (memo.text) {
+                        text += memo.text.split('\n').map(line => `  ${line}`).join('\n');
+                        text += `\n\n`;
+                    }
+                });
+            }
+        }
+        
         const outs = p.connections.filter(c => c.from === node.id);
         if (outs.length) {
             outs.forEach(c => {
                 const to = p.nodes.find(n => n.id === c.to);
-                text += `  ${c.label ? `[${c.label}]` : '▼'} → ${to?.title || '？'}\n`;
+                text += `  ${c.label ? `[${c.label}]` : '▼'} → ${to?.sceneName || to?.title || '？'}\n`;
             });
         }
         text += `\n${'-'.repeat(40)}\n\n`;
