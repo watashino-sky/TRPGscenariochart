@@ -96,19 +96,29 @@ body {
     border-bottom: 2px solid #e0e0e0;
     padding: 15px 20px;
     display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.chart-header-top {
+    display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
 }
 
 .chart-header h2 {
     font-size: 18px;
     flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .header-buttons {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 8px;
-    flex-wrap: wrap;
 }
 
 #canvas-container {
