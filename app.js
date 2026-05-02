@@ -44,6 +44,7 @@ function init() {
     loadProjects();
     setupListeners();
     renderProjectList();
+    initAssistTool(); // 補助ツール初期化
 }
 
 function loadProjects() {
@@ -879,7 +880,7 @@ function onWinTU() {
 // ============================================================
 // エクスポート / インポート
 // ============================================================
-async function exportCocofolia() {
+function exportCocofolia() {
     const p = getProject();
     if (!p.nodes.length) {
         notify('シーンがありません');
@@ -1030,12 +1031,9 @@ async function exportCocofolia() {
     });
 
     try {
-        // JSZipでZIPファイルを作成
-        const zip = new JSZip();
-        zip.file('__data.json', JSON.stringify(data, null, 2));
-
-        // ZIPをBlob化してダウンロード
-        const blob = await zip.generateAsync({ type: 'blob' });
+        // 軽量ZIP生成（外部ライブラリ不要）
+        const jsonContent = JSON.stringify(data, null, 2);
+        const blob = createZipBlob('__data.json', jsonContent);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1391,6 +1389,214 @@ window.removeStatus = removeStatus;
 window.updateStatus = updateStatus;
 
 // ============================================================
+// 軽量ZIP生成（外部ライブラリ不要）
+// ============================================================
+function createZipBlob(filename, content) {
+    // CRC32計算
+    function crc32(data) {
+        const table = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+            let c = i;
+            for (let k = 0; k < 8; k++) {
+                c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+            }
+            table[i] = c;
+        }
+        
+        let crc = 0xFFFFFFFF;
+        const bytes = new TextEncoder().encode(data);
+        for (let i = 0; i < bytes.length; i++) {
+            crc = table[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+        }
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+    
+    // DOS日時形式に変換
+    function toDosDateTime() {
+        const now = new Date();
+        const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+        const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+        return { date, time };
+    }
+    
+    const fileBytes = new TextEncoder().encode(content);
+    const filenameBytes = new TextEncoder().encode(filename);
+    const crc = crc32(content);
+    const { date, time } = toDosDateTime();
+    
+    // Local file header
+    const lfh = new Uint8Array(30 + filenameBytes.length);
+    const lfhView = new DataView(lfh.buffer);
+    lfhView.setUint32(0, 0x04034b50, true); // signature
+    lfhView.setUint16(4, 20, true); // version needed
+    lfhView.setUint16(6, 0, true); // flags
+    lfhView.setUint16(8, 0, true); // compression (stored)
+    lfhView.setUint16(10, time, true);
+    lfhView.setUint16(12, date, true);
+    lfhView.setUint32(14, crc, true);
+    lfhView.setUint32(18, fileBytes.length, true); // compressed size
+    lfhView.setUint32(22, fileBytes.length, true); // uncompressed size
+    lfhView.setUint16(26, filenameBytes.length, true);
+    lfhView.setUint16(28, 0, true); // extra field length
+    lfh.set(filenameBytes, 30);
+    
+    // Central directory header
+    const cdh = new Uint8Array(46 + filenameBytes.length);
+    const cdhView = new DataView(cdh.buffer);
+    cdhView.setUint32(0, 0x02014b50, true); // signature
+    cdhView.setUint16(4, 20, true); // version made by
+    cdhView.setUint16(6, 20, true); // version needed
+    cdhView.setUint16(8, 0, true); // flags
+    cdhView.setUint16(10, 0, true); // compression
+    cdhView.setUint16(12, time, true);
+    cdhView.setUint16(14, date, true);
+    cdhView.setUint32(16, crc, true);
+    cdhView.setUint32(20, fileBytes.length, true);
+    cdhView.setUint32(24, fileBytes.length, true);
+    cdhView.setUint16(28, filenameBytes.length, true);
+    cdhView.setUint16(30, 0, true); // extra field length
+    cdhView.setUint16(32, 0, true); // comment length
+    cdhView.setUint16(34, 0, true); // disk number
+    cdhView.setUint16(36, 0, true); // internal attrs
+    cdhView.setUint32(38, 0, true); // external attrs
+    cdhView.setUint32(42, 0, true); // offset of local header
+    cdh.set(filenameBytes, 46);
+    
+    // End of central directory
+    const eocd = new Uint8Array(22);
+    const eocdView = new DataView(eocd.buffer);
+    eocdView.setUint32(0, 0x06054b50, true); // signature
+    eocdView.setUint16(4, 0, true); // disk number
+    eocdView.setUint16(6, 0, true); // disk with central dir
+    eocdView.setUint16(8, 1, true); // entries on this disk
+    eocdView.setUint16(10, 1, true); // total entries
+    eocdView.setUint32(12, cdh.length, true); // central dir size
+    eocdView.setUint32(16, lfh.length + fileBytes.length, true); // offset of central dir
+    eocdView.setUint16(20, 0, true); // comment length
+    
+    // Combine all parts
+    const zipData = new Uint8Array(lfh.length + fileBytes.length + cdh.length + eocd.length);
+    zipData.set(lfh, 0);
+    zipData.set(fileBytes, lfh.length);
+    zipData.set(cdh, lfh.length + fileBytes.length);
+    zipData.set(eocd, lfh.length + fileBytes.length + cdh.length);
+    
+    return new Blob([zipData], { type: 'application/zip' });
+}
+
+// ============================================================
 // 起動
 // ============================================================
 init();
+
+// ============================================================
+// 補助ツール機能
+// ============================================================
+
+// 技能・記法データ
+const assistData = {
+    skills: {
+        common: ['回避', 'キック', '組みつき', '投擲', '拳銃', 'サブマシンガン', 'ショットガン', 'マシンガン', 'ライフル', '応急手当', '鍵開け', '聞き耳', '精神分析', '追跡', '登攀', '図書館', '目星', '隠れる', '忍び歩き', '写真術', '運転', '機械修理', '電気修理', 'ナビゲート', '博物学'],
+        v6: ['信用', '威圧', 'アイデア', '幸運', 'SANチェック', 'KP情報'],
+        v7: ['信用', '威圧', '説得', '言いくるめ', 'INT', 'アイデア', '幸運', '知識', 'SANチェック', 'KP情報'],
+        custom: []
+    },
+    notation: {
+        common: ['〈技能〉', '【見出し】', '＞情報', '「台詞」', '〝描写〟', '――――', '探索箇所', 'シーン', 'ハンドアウト', 'NPC：', 'アイテム：']
+    }
+};
+
+// 現在選択中のバージョン
+let currentVersion = 'common';
+let currentSubtab = 'skills';
+
+// 補助ツールタブの初期化
+function initAssistTool() {
+    // メインタブ切り替え
+    document.querySelectorAll('.node-editor-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.tab;
+            document.querySelectorAll('.node-editor-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.node-editor-tab-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(targetTab + '-panel').classList.add('active');
+        });
+    });
+
+    // サブタブ切り替え
+    document.querySelectorAll('.assist-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            currentSubtab = tab.dataset.subtab;
+            document.querySelectorAll('.assist-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.assist-subtab-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(currentSubtab + '-panel').classList.add('active');
+        });
+    });
+
+    // バージョン切り替え
+    document.querySelectorAll('.version-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentVersion = btn.dataset.version;
+            document.querySelectorAll('.version-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderAssistButtons();
+        });
+    });
+
+    renderAssistButtons();
+}
+
+// ボタンをレンダリング
+function renderAssistButtons() {
+    // 技能ボタン
+    const skillsContainer = document.getElementById('skills-buttons');
+    skillsContainer.innerHTML = '';
+    
+    let skills = [];
+    if (currentVersion === 'common') {
+        skills = assistData.skills.common;
+    } else if (currentVersion === 'v6') {
+        skills = [...assistData.skills.common, ...assistData.skills.v6];
+    } else if (currentVersion === 'v7') {
+        skills = [...assistData.skills.common, ...assistData.skills.v7];
+    } else if (currentVersion === 'custom') {
+        skills = assistData.skills.custom.length ? assistData.skills.custom : ['カスタムボタンなし'];
+    }
+    
+    skills.forEach(skill => {
+        const btn = document.createElement('button');
+        btn.className = 'insert-btn';
+        btn.textContent = skill;
+        btn.onclick = () => insertText(`〈${skill}〉`);
+        skillsContainer.appendChild(btn);
+    });
+
+    // 記法ボタン
+    const notationContainer = document.getElementById('notation-buttons');
+    notationContainer.innerHTML = '';
+    
+    assistData.notation.common.forEach(notation => {
+        const btn = document.createElement('button');
+        btn.className = 'insert-btn';
+        btn.textContent = notation;
+        btn.onclick = () => insertText(notation);
+        notationContainer.appendChild(btn);
+    });
+}
+
+// テキストを挿入
+function insertText(text) {
+    const textarea = document.getElementById('scene-content');
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const before = textarea.value.substring(0, start);
+    const after = textarea.value.substring(end);
+    
+    textarea.value = before + text + after;
+    textarea.selectionStart = textarea.selectionEnd = start + text.length;
+    textarea.focus();
+}
+

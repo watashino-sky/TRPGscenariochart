@@ -63,6 +63,15 @@
                 <h2 id="editor-title">ノード編集</h2>
                 <button id="close-editor-btn" class="close-btn">×</button>
             </div>
+            
+            <!-- タブ切り替え -->
+            <div class="node-editor-tabs">
+                <button class="node-editor-tab active" data-tab="edit">✏️ 編集</button>
+                <button class="node-editor-tab" data-tab="assist">🔧 補助ツール</button>
+            </div>
+            
+            <!-- 編集タブ -->
+            <div class="node-editor-tab-panel active" id="edit-panel">
             <div class="modal-body">
                 <!-- Scenes設定 -->
                 <div class="section-header">📍 Scenes（シーン）設定</div>
@@ -120,6 +129,35 @@
                             <span class="color-preset" data-color="#e1bee7" style="background:#e1bee7" title="紫"></span>
                             <span class="color-preset" data-color="#ffccbc" style="background:#ffccbc" title="オレンジ"></span>
                         </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 補助ツールタブ -->
+            <div class="node-editor-tab-panel" id="assist-panel">
+                <div class="modal-body">
+                    <!-- 技能・記法タブ -->
+                    <div class="assist-tabs">
+                        <button class="assist-tab active" data-subtab="skills">技能</button>
+                        <button class="assist-tab" data-subtab="notation">記法</button>
+                    </div>
+                    
+                    <!-- バージョン選択 -->
+                    <div class="version-selector">
+                        <button class="version-btn active" data-version="common">6版・7版共通</button>
+                        <button class="version-btn" data-version="v6">6版のみ</button>
+                        <button class="version-btn" data-version="v7">7版のみ</button>
+                        <button class="version-btn" data-version="custom">カスタム</button>
+                    </div>
+                    
+                    <!-- 技能ボタンパネル -->
+                    <div class="assist-subtab-panel active" id="skills-panel">
+                        <div class="button-grid" id="skills-buttons"></div>
+                    </div>
+                    
+                    <!-- 記法ボタンパネル -->
+                    <div class="assist-subtab-panel" id="notation-panel">
+                        <div class="button-grid" id="notation-buttons"></div>
                     </div>
                 </div>
             </div>
@@ -190,7 +228,7 @@
     </div>
 
     <input type="file" id="import-file-input" accept=".json" style="display:none;">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- JSZipは使用時に動的ロードします -->
     <script src="app.js"></script>
 </body>
 </html>
