@@ -160,7 +160,15 @@ function renderProjectList() {
 function createProject() {
     const name = document.getElementById('new-project-name').value.trim();
     if (!name) { alert('プロジェクト名を入力してください'); return; }
-    const p = { id: uid(), name, nodes: [], connections: [], createdAt: Date.now(), updatedAt: Date.now() };
+    const p = { 
+        id: uid(), 
+        name, 
+        nodes: [], 
+        connections: [], 
+        characters: [], // キャラクター配列を追加
+        createdAt: Date.now(), 
+        updatedAt: Date.now() 
+    };
     projects.push(p);
     save();
     document.getElementById('new-project-name').value = '';
